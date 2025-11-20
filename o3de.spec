@@ -99,6 +99,9 @@ This package is built from the main branch.
 %prep
 %autosetup -n o3de-%{commit}
 
+# Patch O3DE's Clang configuration to add warning suppressions for clang 21+
+sed -i '/Wno-dllexport-explicit-instantiation-decl/a\        -Wno-error=deprecated-volatile  # clang 21+ compatibility\n        -Wno-error=character-conversion  # clang 21+ compatibility' cmake/Platform/Common/Clang/Configurations_clang.cmake
+
 %build
 # Remove any existing build directory to ensure clean configuration
 rm -rf build
@@ -128,6 +131,23 @@ cmake \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
     -DCMAKE_USE_PTHREADS_INIT=1 \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON
+
+# Patch googletest to add compiler flags for clang 21+ compatibility
+if [ -f build/_deps/googletest-src/googletest/CMakeLists.txt ]; then
+    echo "Patching googletest CMakeLists.txt for clang 21+ compatibility..."
+    cat >> build/_deps/googletest-src/googletest/CMakeLists.txt <<'GTEST_EOF'
+
+# Fix for clang 21+ warnings
+if(TARGET gtest)
+  target_compile_options(gtest PRIVATE -Wno-error=character-conversion -Wno-error=deprecated-volatile)
+endif()
+if(TARGET gtest_main)
+  target_compile_options(gtest_main PRIVATE -Wno-error=character-conversion -Wno-error=deprecated-volatile)
+endif()
+GTEST_EOF
+    # Reconfigure to pick up the changes
+    cmake build
+fi
 
 # Build
 cmake --build build --parallel %{_smp_build_ncpus}
