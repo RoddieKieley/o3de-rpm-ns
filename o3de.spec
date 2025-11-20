@@ -94,11 +94,10 @@ O3DE (Open 3D Engine) is an open-source, real-time, multi-platform 3D engine
 that enables developers and content creators to build AAA games, cinema-quality
 3D worlds, and high-fidelity simulations without any fees or commercial obligations.
 
-This package is built from the stabilization/25100 branch.
+This package is built from the main branch.
 
 %prep
-%autosetup -n main
-# %autosetup -n 25100
+%autosetup -n o3de-%{commit}
 
 %build
 # Remove any existing build directory to ensure clean configuration
@@ -120,7 +119,7 @@ cmake \
     -DCMAKE_BUILD_TYPE=profile \
     -DCMAKE_CONFIGURATION_TYPES=profile \
     -DCMAKE_INSTALL_PREFIX=/usr/o3de \
-    -DLY_3RDPARTY_PATH=%{_builddir}/%{name}-%{version}-build/3rdParty \
+    -DLY_3RDPARTY_PATH=%{_builddir}/o3de-%{commit}/build/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{version} \
     -DLY_DISABLE_TEST_MODULES=ON \
