@@ -114,19 +114,19 @@ unset CFLAGS
 unset CXXFLAGS
 unset LDFLAGS
 
-# Configure with CMake - limit to profile configuration only
+# Configure with CMake - debug configuration
 cmake \
     -S . \
     -B build \
     -G Ninja \
-    -DCMAKE_BUILD_TYPE=profile \
-    -DCMAKE_CONFIGURATION_TYPES=profile \
+    -DCMAKE_BUILD_TYPE=debug \
+    -DCMAKE_CONFIGURATION_TYPES=debug \
     -DCMAKE_INSTALL_PREFIX=/usr/o3de \
     -DLY_3RDPARTY_PATH=%{_builddir}/o3de-%{commit}/build/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{version} \
     -DLY_DISABLE_TEST_MODULES=ON \
-    -DLY_STRIP_DEBUG_SYMBOLS=ON \
+    -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DCMAKE_THREAD_LIBS_INIT="-lpthread" \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
     -DCMAKE_USE_PTHREADS_INIT=1 \
@@ -160,19 +160,19 @@ cd ../..
 
 %install
 # Install from the build directory
-# Install all components (CORE, DEFAULT, and DEFAULT_PROFILE) to get scripts, python, cmake, and engine.json
+# Install all components (CORE, DEFAULT, and DEFAULT_DEBUG) to get scripts, python, cmake, and engine.json
 # CMake requires separate install commands for each component
 DESTDIR=%{buildroot} cmake --install build --component CORE
 DESTDIR=%{buildroot} cmake --install build --component DEFAULT
-DESTDIR=%{buildroot} cmake --install build --component DEFAULT_PROFILE
+DESTDIR=%{buildroot} cmake --install build --component DEFAULT_DEBUG
 
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
 # Create symlinks in the binary location
 # O3DE binaries expect certain files to be relative to their location
-ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python
-ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json
+ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
+ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
 
 # Patch get_python.sh to create engine.json symlink and Python path config
 # This is required for O3DE to find the engine configuration and modules
@@ -190,6 +190,27 @@ if [ -d "$HOME/.o3de/Python/venv" ]; then\
             echo "${venv_dir}lib/python3.10/site-packages" > "$HOME/.local/lib/python3.10/site-packages/o3de-venv.pth"\
         fi\
     done\
+fi\
+\
+# Fix for engine path ID mismatch between get_python.sh and O3DE binary\
+# The O3DE binary calculates engine ID from bin/Linux/debug/Default/python/..\
+# while get_python.sh uses the direct engine path, resulting in different hashes\
+if [ -x "$(command -v cmake)" ]; then\
+    STANDARD_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/.." 2>/dev/null | tail -1)\
+    ALTERNATE_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/../bin/Linux/debug/Default/python/.." 2>/dev/null | tail -1)\
+    if [ -n "$STANDARD_ENGINE_ID" ] && [ -n "$ALTERNATE_ENGINE_ID" ] && [ "$STANDARD_ENGINE_ID" != "$ALTERNATE_ENGINE_ID" ]; then\
+        if [ -d "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ]; then\
+            ln -s "$STANDARD_ENGINE_ID" "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" 2>/dev/null || true\
+        elif [ -d "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ]; then\
+            ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true\
+        fi\
+    fi\
+fi\
+\
+# Fix manifest corruption: The o3de Python package installation may incorrectly\
+# register the venv lib directory as the engine. Re-register the correct engine path.\
+if [ -x "$DIR/../scripts/o3de.sh" ]; then\
+    "$DIR/../scripts/o3de.sh" register --this-engine --force 2>/dev/null || true\
 fi\
 ' %{buildroot}/usr/o3de/python/get_python.sh
 
@@ -231,10 +252,10 @@ else
 fi
 
 # Set LD_LIBRARY_PATH for O3DE libraries
-export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/profile/Default:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/debug/Default:$LD_LIBRARY_PATH"
 
 # Launch O3DE
-exec /usr/o3de/bin/Linux/profile/Default/o3de "$@"
+exec /usr/o3de/bin/Linux/debug/Default/o3de "$@"
 O3DE_WRAPPER_EOF
 chmod +x %{buildroot}%{_bindir}/o3de
 
