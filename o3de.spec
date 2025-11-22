@@ -173,6 +173,11 @@ DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
+# Fix permissions for directories that need write access during project builds
+# O3DE installs Python packages in development mode which requires write access to source directories
+chmod -R a+w %{buildroot}/usr/o3de/Tools
+chmod -R a+w %{buildroot}/usr/o3de/scripts
+
 # Create symlinks in the binary location
 # O3DE binaries expect certain files to be relative to their location
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
@@ -361,7 +366,7 @@ if [ -x /usr/bin/update-desktop-database ]; then
 fi
 
 %changelog
-* Fri Nov 21 2025 Package Builder <builder@localhost> - 25100.0.1
+* Sat Nov 22 2025 Package Builder <builder@localhost> - 25100.0.1
 - Initial RPM package for O3DE from main branch
 - Built for Fedora 43
 - Commit: ece239c0113d988907edea0022f7609387ae7baa
