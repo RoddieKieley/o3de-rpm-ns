@@ -383,8 +383,16 @@ fi
 # Set LD_LIBRARY_PATH for O3DE libraries
 export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/$BUILD_CONFIG/Default:$LD_LIBRARY_PATH"
 
-# Launch O3DE
-exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de "$@"
+# Set up user directories in home folder to avoid permission issues
+# O3DE needs writable directories for cache and user settings
+# Note: O3DE already creates ~/.o3de/Logs, so we reuse that
+mkdir -p "$HOME/.o3de/user"
+
+# Launch O3DE with user paths pointing to writable locations in home directory
+exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de \
+    --project-user-path="$HOME/.o3de/user" \
+    --project-log-path="$HOME/.o3de/Logs" \
+    "$@"
 O3DE_WRAPPER_EOF
 chmod +x %{buildroot}%{_bindir}/o3de
 
@@ -453,6 +461,8 @@ fi
 - Fix flattened gem directory structure in External/
 - Reorganize Atom, AtomLyIntegration, AtomContent, Multiplayer, and Streamer subdirectories
 - Resolves "Invalid gem json" errors for nested gems on startup
+- Fix user cache directory permissions by redirecting to ~/.o3de/
+- Set project-user-path and project-log-path to writable locations in home directory
 
 * Sat Nov 22 2025 Nicholas Schuetz <nschuetz@redhat.com> - 25100.0.1-1
 - Rewritten RPM package for O3DE v25.10.0 from main github branch
